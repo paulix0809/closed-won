@@ -135,7 +135,22 @@ function updateMine() {
   }).join('');
 }
 
-function updateAll() { updatePlayers(); updateMine(); }
+/* the valley in the middle follows the game: sector sites, the rim train, the light of the day */
+function syncWorld() {
+  if (!g || !board) return;
+  Object.keys(SECTORS).forEach(k => {
+    let level = 0;
+    const sum = {};
+    g.sectorTiles(k).forEach(i => { const o = g.owner[i]; if (o !== null) { level = Math.max(level, g.stage[i]); sum[o] = (sum[o] || 0) + g.stage[i]; } });
+    const top = Object.keys(sum).sort((a, b) => sum[b] - sum[a])[0];
+    board.world.sector(k, level, top === undefined ? null : g.players[top].color, top !== undefined && g.full(+top, k));
+  });
+  const lead = [...g.players].sort((a, b) => b.pipeline - a.pipeline)[0];
+  board.world.leader(lead.pipeline, lead.pipeline > 0 ? lead.color : null);
+  board.daylight((g.round - 1) / 20);
+}
+
+function updateAll() { updatePlayers(); updateMine(); syncWorld(); }
 
 /* ---------- cards & modals ---------- */
 function sectorDots(t) {
@@ -240,7 +255,7 @@ const io = {
     setTimeout(() => board.hideDice(), 500 / speed);
     board.focus(dest, 175 * path.length + 400);
     let shown = false;
-    await board.moveToken(p.id, path, i => { sfx.step(); if (i === 0 && kick >= 0 && !shown) { shown = true; showEvents(p, ev); log(`${esc(p.name)} passes Kickoff: new quarter, new budget.`, p.id); } });
+    await board.moveToken(p.id, path, i => { sfx.step(); if (i === 0 && kick >= 0 && !shown) { shown = true; board.world.event('birds'); showEvents(p, ev); log(`${esc(p.name)} passes Kickoff: new quarter, new budget.`, p.id); } });
     board.pulse(dest);
     updateAll();
     await wait(280);
@@ -255,15 +270,15 @@ const io = {
     if (p.ai) { await wait(360); return g.aiUpgrades(p).includes(i); }
     return ask(marketCard(i, p, 'upgrade'));
   },
-  async card(p, card, deck) { sfx.card(); board.drawCard(deck); await wait(300); await showCard(p, card, deck); },
+  async card(p, card, deck) { sfx.card(); board.drawCard(deck); board.world.event(deck === 'brain' ? 'learning' : 'signal', p.color); await wait(300); await showCard(p, card, deck); },
   async note(p, kind, i, extra) {
     const t = TILES[i], n = esc(p.name);
     if (kind === 'fee') { const o = g.players[g.owner[i]]; log(`${n} lands on ${esc(o.name)}’s <b>${t.name}</b>.`, p.id); toast(`<b>${n}</b> lands on <b>${t.name}</b>. ${esc(o.name)} books the meeting.`, o.color); await wait(500); }
     else if (kind === 'short') { log(`${n} cannot afford ${t.name}.`, p.id); if (!p.ai) toast(`Not enough budget to map <b>${t.name}</b>.`, p.color); await wait(500); }
-    else if (kind === 'spam') { sfx.spam(); log(`${n} lands in the Spam Folder and loses a turn.`, p.id); toast(`<b>${n}</b> is in the Spam Folder. Next turn lost.`, '#D9785A'); await wait(900); }
+    else if (kind === 'spam') { sfx.spam(); board.world.event('storm'); log(`${n} lands in the Spam Folder and loses a turn.`, p.id); toast(`<b>${n}</b> is in the Spam Folder. Next turn lost.`, '#D9785A'); await wait(900); }
     else if (kind === 'shield') { log(`${n}’s deliverability shield absorbs the Spam Folder.`, p.id); toast(`<b>${n}</b> uses the deliverability shield. No turn lost.`, p.color); await wait(800); }
     else if (kind === 'skipped') { board.setActive(p.id); updateAll(); await board.focus(p.pos, 700); dock(`<i class="pdot" style="background:${p.color}"></i><b>${n}</b> is stuck in spam this turn.`, false); log(`${n} sits this turn out.`, p.id); await wait(1100); }
-    else if (kind === 'board') { log(`${n} faces the board and pays ${money(extra)}.`, p.id); toast(`<b>Board Meeting.</b> ${n} pays ${money(extra)} in overhead.`, p.color); await wait(600); }
+    else if (kind === 'board') { board.world.event('airship'); log(`${n} faces the board and pays ${money(extra)}.`, p.id); toast(`<b>Board Meeting.</b> ${n} pays ${money(extra)} in overhead.`, p.color); await wait(600); }
     else if (kind === 'kickoff') { log(`${n} lands exactly on Kickoff: bonus budget.`, p.id); await wait(200); }
     else if (kind === 'doubles') { log(`${n} rolled doubles and goes again.`, p.id); await wait(250); }
   }

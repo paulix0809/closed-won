@@ -8,6 +8,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { createWorld, SITES } from './world.js';
 
 const N = 30, D = (Math.PI * 2) / N;
 const R_IN = 5.62, R_OUT = 9.8, Y = 0.25, LANE = 9.12, LABEL = 7.68, PLOT = 6.28;
@@ -244,7 +245,7 @@ function buildValley(root, anim) {
   const treeGeo = mergeGeometries([cone(0.25, 0.4, 0.3), cone(0.19, 0.36, 0.52), cone(0.12, 0.3, 0.74)]);
   const trunkGeo = new THREE.CylinderGeometry(0.035, 0.05, 0.16, 5); trunkGeo.translate(0, 0.07, 0);
   const spots = [], rnd = rng(11);
-  const blocked = [[0.2, 0.9, 1.5], [2.9, 0.2, 1.25], [-3.5, 1.8, 0.9], [-1.7, 1.55, 0.5]];
+  const blocked = [[0.2, 0.9, 1.5], [2.9, 0.2, 1.25], [-3.5, 1.8, 0.9], [-1.7, 1.55, 0.5]].concat(Object.values(SITES).map(p => [p[0], p[1], 0.85]));
   let guard = 0;
   while (spots.length < 150 && guard++ < 4000) {
     const a = rnd() * 7, r = Math.sqrt(rnd()) * 5.2, x = r * Math.cos(a), z = r * Math.sin(a), h = hgt(x, z);
@@ -284,13 +285,14 @@ function buildValley(root, anim) {
   plant.add(mesh(new THREE.BoxGeometry(0.36, 0.3, 0.34), wall2, 1.46, 0.15, 0), mesh(new THREE.BoxGeometry(0.4, 0.04, 0.38), ochre, 1.46, 0.32, 0), mesh(new THREE.BoxGeometry(0.1, 0.1, 0.01), lit, 1.42, 0.16, 0.175));
   plant.add(mesh(new THREE.CylinderGeometry(0.04, 0.055, 1.3, 10), wall, 0.5, 0.65, -0.26), mesh(new THREE.CylinderGeometry(0.046, 0.046, 0.07, 10), ochre, 0.5, 1.06, -0.26), mesh(new THREE.CylinderGeometry(0.044, 0.044, 0.07, 10), ochre, 0.5, 1.2, -0.26));
   const beacon = mesh(new THREE.SphereGeometry(0.03, 8, 8), glow('#F0A58C', 4), 0.5, 1.33, -0.26); plant.add(beacon);
+  let plantK = 1;
   const puffs = [];
   for (let i = 0; i < 4; i++) { const s = mesh(new THREE.IcosahedronGeometry(0.1, 1), new THREE.MeshStandardMaterial({ color: '#F2EFE6', transparent: true, opacity: 0.7, flatShading: true }), 0.5, 1.4, -0.26); plant.add(s); puffs.push(s); }
   plant.position.set(2.5, gy(2.9, 0.2) - 0.02, 0.2); plant.rotation.y = -0.5; plant.scale.setScalar(1.15);
   shadow(plant); puffs.forEach(s => { s.castShadow = false; });
   root.add(plant);
   anim.push(t => {
-    puffs.forEach((s, i) => { const k = (t * 0.25 + i / 4) % 1; s.position.set(0.5 + k * 0.5, 1.4 + k * 0.95, -0.26 - k * 0.2); s.scale.setScalar(0.5 + k * 1.6); s.material.opacity = 0.75 * (1 - k); });
+    puffs.forEach((s, i) => { const k = (t * 0.25 + i / 4) % 1; s.position.set(0.5 + k * 0.5, 1.4 + k * 0.95, -0.26 - k * 0.2); s.scale.setScalar(0.5 + k * 1.6); s.material.opacity = 0.75 * (1 - k) * plantK; });
     beacon.material.emissiveIntensity = 2 + 3 * (Math.sin(t * 4) > 0.2);
   });
 
@@ -349,6 +351,7 @@ function buildValley(root, anim) {
   const fg = new THREE.BufferGeometry(); fg.setAttribute('position', new THREE.BufferAttribute(fp, 3));
   root.add(new THREE.Points(fg, new THREE.PointsMaterial({ color: '#FFE2A8', size: 0.075, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false })));
   anim.push(t => { fs.forEach((f, i) => { fp[i * 3] = f[0] + Math.sin(t * f[4] + f[3]) * 0.4; fp[i * 3 + 1] = f[1] + Math.sin(t * f[4] * 1.7 + f[3]) * 0.3; fp[i * 3 + 2] = f[2] + Math.cos(t * f[4] + f[3]) * 0.4; }); fg.attributes.position.needsUpdate = true; });
+  return { gy, brain: [bx, by, bz], setPlant: v => { plantK = v; } };
 }
 
 /* ---------- buildings: Mapped → Reach → Booked ---------- */
@@ -458,7 +461,8 @@ export async function createBoard(canvas, TILES, SECTORS) {
   controls.addEventListener('end', () => { dragging = false; lastUser = performance.now(); });
 
   /* lights */
-  scene.add(new THREE.HemisphereLight(0xdfeee4, 0x0d1a11, 1.25));
+  const hemi = new THREE.HemisphereLight(0xdfeee4, 0x0d1a11, 1.25);
+  scene.add(hemi);
   const sun = new THREE.DirectionalLight(0xffe0ae, 3.1);
   sun.position.set(13, 21, 9); sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.025;
@@ -485,7 +489,8 @@ export async function createBoard(canvas, TILES, SECTORS) {
   root.add(mesh(new THREE.CylinderGeometry(5.5, 5.5, 0.26, 96, 1, true), std('#0B1711', { side: THREE.DoubleSide }), 0, 0.13, 0));
   for (let i = 0; i < N; i++) { const a = (i + 0.5) * D, s = mesh(new THREE.SphereGeometry(0.06, 10, 8), gold, Math.sin(a) * 10.22, 0.04, Math.cos(a) * 10.22); root.add(s); }
 
-  buildValley(root, anim);
+  const valley = buildValley(root, anim);
+  const world = createWorld({ root, anim, gy: valley.gy, brain: valley.brain, setPlant: valley.setPlant, tween: (ms, fn, ease) => tween(ms, fn, ease), mesh, std, glow, shadow, glowSprite, blinkers });
 
   /* tiles */
   const a0 = -Math.PI / 2 - D / 2 + 0.007, a1 = -Math.PI / 2 + D / 2 - 0.007;
@@ -602,7 +607,24 @@ export async function createBoard(canvas, TILES, SECTORS) {
   const sp = new Float32Array(600 * 3), rs = rng(3);
   for (let i = 0; i < 600; i++) { const a = rs() * Math.PI * 2, e = 0.05 + rs() * 1.3, r = 140; sp[i * 3] = r * Math.cos(e) * Math.cos(a); sp[i * 3 + 1] = r * Math.sin(e) - 10; sp[i * 3 + 2] = r * Math.cos(e) * Math.sin(a); }
   const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.BufferAttribute(sp, 3));
-  scene.add(new THREE.Points(sg, new THREE.PointsMaterial({ color: '#F2EFE6', size: 0.55, fog: false, transparent: true, opacity: 0.8 })));
+  const starsMat = new THREE.PointsMaterial({ color: '#F2EFE6', size: 0.55, fog: false, transparent: true, opacity: 0.4 });
+  scene.add(new THREE.Points(sg, starsMat));
+
+  /* the light follows the quarter: morning at round 1, golden hour mid-game, moonlight in the last rounds */
+  const DAY = [[0, '#FFE0AE', 3.1, 1.25, [13, 21, 9]], [0.35, '#FFF3DC', 3.4, 1.3, [4, 25, 6]], [0.62, '#FFB870', 2.8, 1.05, [-10, 14, 8]], [0.82, '#FF8A5C', 1.7, 0.85, [-15, 7, 6]], [1, '#9FC2E8', 1.05, 0.66, [-9, 18, -8]]];
+  const cA = new THREE.Color(), cB = new THREE.Color();
+  let dayT = 0, dayNow = 0;
+  function applyDay(t) {
+    let i = 0;
+    while (i < DAY.length - 2 && t > DAY[i + 1][0]) i++;
+    const a = DAY[i], b = DAY[i + 1], k = Math.min(1, Math.max(0, (t - a[0]) / (b[0] - a[0])));
+    sun.color.copy(cA.set(a[1])).lerp(cB.set(b[1]), k);
+    sun.intensity = a[2] + (b[2] - a[2]) * k;
+    hemi.intensity = a[3] + (b[3] - a[3]) * k;
+    sun.position.set(a[4][0] + (b[4][0] - a[4][0]) * k, a[4][1] + (b[4][1] - a[4][1]) * k, a[4][2] + (b[4][2] - a[4][2]) * k);
+    starsMat.opacity = 0.35 + 0.65 * t;
+  }
+  anim.push(() => { if (Math.abs(dayT - dayNow) > 0.0005) { dayNow += (dayT - dayNow) * 0.02; applyDay(dayNow); } });
 
   /* dice */
   const diceMats = [3, 4, 1, 6, 2, 5].map(n => new THREE.MeshStandardMaterial({ map: diceTexture(n), roughness: 0.35, envMapIntensity: 0.8 }));
@@ -708,6 +730,8 @@ export async function createBoard(canvas, TILES, SECTORS) {
     speed: k => { speed = k; },
     wait,
     autoRotate(on) { controls.autoRotate = on; controls.autoRotateSpeed = 0.55; },
+    world,
+    daylight(t) { dayT = Math.min(1, Math.max(0, t)); },
     shiftView(to, ms = 900) { const from = shift; return tween(ms, k => { shift = from + (to - from) * k; resize(); }); },
     tileScreen: i => toScreen(local(i, 0, Y + 0.6, LABEL)),
     tokenScreen: id => { const p = tokens[id].g.position.clone(); p.y += 1.3; return toScreen(p); },
@@ -720,6 +744,7 @@ export async function createBoard(canvas, TILES, SECTORS) {
       tiles.forEach((rec, i) => api.setTile(i, null, 0, false));
       dice.forEach(d => { d.visible = false; });
       activeId = null; activeRing.visible = false; hiUntil = 0;
+      world.reset(); dayT = 0;
     },
     overview(on) {
       const phi = controls.getPolarAngle(), dist = controls.getDistance(), th = controls.getAzimuthalAngle();
