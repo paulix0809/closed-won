@@ -73,13 +73,23 @@ function wrapName(name) {
   return best.lines;
 }
 
-function labelTexture(t, sector) {
+function labelTexture(t, sector, owner) {
   const c = document.createElement('canvas');
   c.width = 384; c.height = 448;
   const x = c.getContext('2d');
   x.textAlign = 'center';
   x.textBaseline = 'middle';
   const fit = (lines, size, weight, maxW) => { do { x.font = `${weight} ${size}px ${SANS}`; size -= 2; } while (Math.max(...lines.map(l => x.measureText(l).width)) > maxW && size > 20); return size + 2; };
+  /* once a tile is mapped, the price gives way to a pill with the owner's name in the owner's colour */
+  const ownerPill = () => {
+    const s = owner.name.toUpperCase();
+    fit([s], 40, 800, 292);
+    const w = x.measureText(s).width + 60;
+    rr(x, (384 - w) / 2, 336, w, 72, 36);
+    x.fillStyle = owner.color; x.fill();
+    x.lineWidth = 5; x.strokeStyle = INK; x.stroke();
+    x.fillStyle = INK; x.fillText(s, 192, 374);
+  };
   if (t.type === 'market') {
     x.font = `800 23px ${SANS}`;
     const s = sector.name.toUpperCase(), w = x.measureText(s).width + 44;
@@ -89,9 +99,12 @@ function labelTexture(t, sector) {
     const lines = wrapName(t.name), size = fit(lines, 68, 800, 356);
     x.fillStyle = CREAM;
     lines.forEach((l, i) => x.fillText(l, 192, 190 + (i - (lines.length - 1) / 2) * size * 1.06));
-    x.font = `500 84px ${SERIF}`;
-    x.fillStyle = '#F3C178';
-    x.fillText('$' + t.price + 'K', 192, 378);
+    if (owner) ownerPill();
+    else {
+      x.font = `500 84px ${SERIF}`;
+      x.fillStyle = '#F3C178';
+      x.fillText('$' + t.price + 'K', 192, 378);
+    }
   } else {
     const kind = t.type === 'channel' ? t.icon : t.type;
     const col = { kickoff: INK, spam: '#F0A58C', brain: SAGE, signal: SUN, board: CREAM }[t.type] || SUN;
@@ -102,7 +115,7 @@ function labelTexture(t, sector) {
     x.font = `500 ${t.type === 'channel' ? 76 : 40}px ${SERIF}`;
     x.fillStyle = t.type === 'kickoff' ? INK : '#F3C178';
     const sub = { channel: '$' + t.price + 'K', kickoff: '+$150K each lap', signal: 'Draw a card', brain: 'Draw a learning', spam: 'Lose a turn', board: 'Pay 12%' }[t.type];
-    x.fillText(sub, 192, t.type === 'channel' ? 384 : 384);
+    if (owner && t.type === 'channel') ownerPill(); else x.fillText(sub, 192, 384);
   }
   return tex(c);
 }
@@ -340,7 +353,8 @@ function buildValley(root, anim) {
 
 /* ---------- buildings: Mapped → Reach → Booked ---------- */
 function makeBuilding(stage, color) {
-  const g = new THREE.Group(), own = std(color, { roughness: 0.6 }), wall = std('#EFEAE0'), dark = std('#22332B'), lit = glow('#F7D79A', 2.8);
+  /* the building itself wears the owner's colour: walls in the colour, roofs in a deeper tone of it, cream only as trim */
+  const g = new THREE.Group(), own = std(color, { roughness: 0.6, emissive: color, emissiveIntensity: 0.34, envMapIntensity: 0.1 }), deep = std(new THREE.Color(color).multiplyScalar(0.42), { roughness: 0.6, envMapIntensity: 0.1 }), wall = std('#EFEAE0'), dark = std('#22332B'), lit = glow('#F7D79A', 1.35);
   const flag = (x, y, z, h) => {
     g.add(mesh(new THREE.CylinderGeometry(0.014, 0.014, h, 6), dark, x, y + h / 2, z));
     const f = mesh(new THREE.PlaneGeometry(0.3, 0.17), new THREE.MeshStandardMaterial({ color, side: THREE.DoubleSide, roughness: 0.7 }), x + 0.16, y + h - 0.1, z);
@@ -349,34 +363,34 @@ function makeBuilding(stage, color) {
   const mast = (x, y, z, h) => {
     g.add(mesh(new THREE.CylinderGeometry(0.016, 0.034, h, 6), dark, x, y + h / 2, z));
     [0.5, 0.68, 0.86].forEach(k => { const t = mesh(new THREE.TorusGeometry(0.07 * (1.4 - k), 0.01, 6, 14), own, x, y + h * k, z); t.rotation.x = Math.PI / 2; g.add(t); });
-    const tip = mesh(new THREE.SphereGeometry(0.035, 8, 8), glow('#FFD9A0', 4), x, y + h + 0.03, z); tip.userData.blink = true; g.add(tip);
+    const tip = mesh(new THREE.SphereGeometry(0.045, 8, 8), glow(color, 4), x, y + h + 0.03, z); tip.userData.blink = true; g.add(tip);
   };
   if (stage === 1) {
-    const tent = mesh(new THREE.ConeGeometry(0.3, 0.36, 4), wall, -0.16, 0.18, 0.02); tent.rotation.y = Math.PI / 4; g.add(tent);
+    const tent = mesh(new THREE.ConeGeometry(0.34, 0.42, 4), own, -0.16, 0.21, 0.02); tent.rotation.y = Math.PI / 4; g.add(tent);
     g.add(mesh(new THREE.BoxGeometry(0.1, 0.16, 0.01), dark, -0.16, 0.08, 0.215));
     [[0, 0.3], [0.26, -0.15], [-0.26, -0.15]].forEach(p => { const l = mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.46, 5), dark, 0.3 + p[0] * 0.3, 0.2, 0.05 + p[1] * 0.3); l.rotation.set(p[1] * 0.9, 0, -p[0] * 0.9); g.add(l); });
-    g.add(mesh(new THREE.BoxGeometry(0.1, 0.07, 0.07), own, 0.3, 0.44, 0.05));
+    g.add(mesh(new THREE.BoxGeometry(0.1, 0.07, 0.07), wall, 0.3, 0.44, 0.05));
     flag(0.02, 0, -0.26, 0.8);
     [[-0.42, 0.34], [0.44, 0.36], [0.44, -0.36], [-0.42, -0.34]].forEach(p => g.add(mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.14, 5), own, p[0], 0.07, p[1])));
   } else if (stage === 2) {
-    g.add(mesh(new THREE.BoxGeometry(0.62, 0.34, 0.5), wall, -0.1, 0.17, 0));
-    const roof = mesh(new THREE.ConeGeometry(0.5, 0.26, 4), own, -0.1, 0.47, 0); roof.rotation.y = Math.PI / 4; roof.scale.z = 0.86; g.add(roof);
+    g.add(mesh(new THREE.BoxGeometry(0.62, 0.34, 0.5), own, -0.1, 0.17, 0));
+    const roof = mesh(new THREE.ConeGeometry(0.5, 0.26, 4), deep, -0.1, 0.47, 0); roof.rotation.y = Math.PI / 4; roof.scale.z = 0.86; g.add(roof);
     g.add(mesh(new THREE.BoxGeometry(0.12, 0.2, 0.01), dark, -0.24, 0.1, 0.255), mesh(new THREE.BoxGeometry(0.14, 0.11, 0.01), lit, 0.02, 0.2, 0.255), mesh(new THREE.BoxGeometry(0.01, 0.11, 0.14), lit, 0.215, 0.2, 0));
-    g.add(mesh(new THREE.BoxGeometry(0.07, 0.16, 0.07), wall, -0.3, 0.52, -0.1));
+    g.add(mesh(new THREE.BoxGeometry(0.07, 0.16, 0.07), deep, -0.3, 0.52, -0.1));
     mast(0.36, 0, -0.12, 1.25);
     const dish = mesh(new THREE.SphereGeometry(0.11, 12, 8, 0, 7, 0, 1.1), new THREE.MeshStandardMaterial({ color: '#EFEAE0', side: THREE.DoubleSide }), 0.36, 0.62, -0.02); dish.rotation.x = 1.9; g.add(dish);
     flag(-0.4, 0, -0.3, 0.9);
   } else {
-    g.add(mesh(new THREE.BoxGeometry(0.92, 0.78, 0.62), wall, 0, 0.39, 0));
+    g.add(mesh(new THREE.BoxGeometry(0.92, 0.78, 0.62), own, 0, 0.39, 0));
     for (let f = 0; f < 3; f++) {
-      g.add(mesh(new THREE.BoxGeometry(0.74, 0.1, 0.01), lit, 0, 0.2 + f * 0.22, 0.315), mesh(new THREE.BoxGeometry(0.74, 0.1, 0.01), lit, 0, 0.2 + f * 0.22, -0.315), mesh(new THREE.BoxGeometry(0.01, 0.1, 0.46), lit, 0.465, 0.2 + f * 0.22, 0), mesh(new THREE.BoxGeometry(0.01, 0.1, 0.46), lit, -0.465, 0.2 + f * 0.22, 0));
-      [-0.24, 0, 0.24].forEach(x => g.add(mesh(new THREE.BoxGeometry(0.022, 0.11, 0.014), wall, x, 0.2 + f * 0.22, 0.318)));
+      g.add(mesh(new THREE.BoxGeometry(0.7, 0.065, 0.01), lit, 0, 0.2 + f * 0.22, 0.315), mesh(new THREE.BoxGeometry(0.7, 0.065, 0.01), lit, 0, 0.2 + f * 0.22, -0.315), mesh(new THREE.BoxGeometry(0.01, 0.065, 0.42), lit, 0.465, 0.2 + f * 0.22, 0), mesh(new THREE.BoxGeometry(0.01, 0.065, 0.42), lit, -0.465, 0.2 + f * 0.22, 0));
+      [-0.24, 0, 0.24].forEach(x => g.add(mesh(new THREE.BoxGeometry(0.03, 0.075, 0.014), own, x, 0.2 + f * 0.22, 0.318)));
     }
-    g.add(mesh(new THREE.BoxGeometry(1.02, 0.07, 0.72), own, 0, 0.815, 0), mesh(new THREE.BoxGeometry(0.42, 0.2, 0.34), wall, -0.18, 0.95, 0), mesh(new THREE.BoxGeometry(0.48, 0.05, 0.4), own, -0.18, 1.07, 0), mesh(new THREE.BoxGeometry(0.3, 0.07, 0.01), lit, -0.18, 0.95, 0.172));
-    g.add(mesh(new THREE.BoxGeometry(0.26, 0.05, 0.2), own, 0, 0.3, 0.38), mesh(new THREE.BoxGeometry(0.16, 0.26, 0.012), dark, 0, 0.13, 0.317));
+    g.add(mesh(new THREE.BoxGeometry(1.02, 0.07, 0.72), deep, 0, 0.815, 0), mesh(new THREE.BoxGeometry(0.42, 0.2, 0.34), own, -0.18, 0.95, 0), mesh(new THREE.BoxGeometry(0.48, 0.05, 0.4), deep, -0.18, 1.07, 0), mesh(new THREE.BoxGeometry(0.3, 0.07, 0.01), lit, -0.18, 0.95, 0.172));
+    g.add(mesh(new THREE.BoxGeometry(0.26, 0.05, 0.2), deep, 0, 0.3, 0.38), mesh(new THREE.BoxGeometry(0.16, 0.26, 0.012), dark, 0, 0.13, 0.317));
     mast(0.3, 0.85, -0.12, 0.95);
     flag(-0.36, 1.09, 0.1, 0.5);
-    const h = glowSprite('#F7D79A', 2.4); h.position.set(0, 0.5, 0); h.material.opacity = 0.35; g.add(h);
+    const h = glowSprite(color, 2.6); h.position.set(0, 0.5, 0); h.material.opacity = 0.3; g.add(h);
   }
   return shadow(g);
 }
@@ -478,7 +492,7 @@ export async function createBoard(canvas, TILES, SECTORS) {
   const tileGeo = extrude(ringSeg(R_IN, R_OUT, a0, a1), 0.2);
   const plotGeo = extrude(ringSeg(5.76, 6.86, a0 + 0.014, a1 - 0.014), 0.035, 0.012);
   const laneGeo = extrude(ringSeg(LANE - 0.03, LANE + 0.03, a0 + 0.03, a1 - 0.03), 0.004, 0);
-  const ringGeo = extrude(ringSeg(9.56, 9.76, a0 + 0.012, a1 - 0.012), 0.05, 0.01);
+  const ringGeo = extrude(ringSeg(8.5, 9.76, a0 + 0.012, a1 - 0.012), 0.012, 0);
   const hiGeo = extrude(ringSeg(R_IN + 0.04, R_OUT - 0.04, a0 + 0.008, a1 - 0.008), 0.01, 0);
   const labelGeo = new THREE.PlaneGeometry(1.36, 1.586).rotateX(-Math.PI / 2);
   const tileColor = { market: ['#17382B', '#1B4132'], channel: ['#2C2B1E', '#2C2B1E'], kickoff: ['#C8934C', '#C8934C'], signal: ['#5A4320', '#5A4320'], brain: ['#1F4D45', '#1F4D45'], spam: ['#4E2B22', '#4E2B22'], board: ['#34382F', '#34382F'] };
@@ -496,10 +510,11 @@ export async function createBoard(canvas, TILES, SECTORS) {
     g.add(mesh(laneGeo, new THREE.MeshBasicMaterial({ color: CREAM, transparent: true, opacity: t.type === 'kickoff' ? 0 : 0.16 }), 0, Y, 0));
     const lab = mesh(labelGeo, new THREE.MeshBasicMaterial({ map: labelTexture(t, SECTORS[t.sector]), transparent: true, depthWrite: false, toneMapped: false }), 0, Y + 0.006, LABEL);
     g.add(lab);
-    const ring = mesh(ringGeo, std('#ffffff', { roughness: 0.4, emissive: '#000000' }), 0, Y - 0.02, 0);
+    const ring = mesh(ringGeo, std('#ffffff', { roughness: 0.55, emissive: '#000000', transparent: true, opacity: 0.92 }), 0, Y - 0.004, 0);
+    ring.receiveShadow = true;
     ring.visible = false; g.add(ring);
     const holder = new THREE.Group(); holder.position.set(0, Y + 0.02, PLOT); g.add(holder);
-    const rec = { t, group: g, mesh: m, ring, holder, plot: null, prop: null, stage: 0, owner: null };
+    const rec = { t, group: g, mesh: m, ring, holder, lab, base: tileColor[t.type][i % 2], plot: null, prop: null, stage: 0, owner: null };
     if (t.type === 'market') {
       rec.plot = mesh(plotGeo, std(SECTORS[t.sector].color, { roughness: 0.85 }), 0, Y - 0.005, 0);
       rec.plot.receiveShadow = true; g.add(rec.plot);
@@ -559,6 +574,15 @@ export async function createBoard(canvas, TILES, SECTORS) {
   const hiGroup = new THREE.Group(); hiGroup.add(hi); root.add(hiGroup);
   let hiUntil = 0;
   anim.push(t => { const left = hiUntil - performance.now(); hi.material.opacity = left > 0 ? (0.22 + 0.16 * Math.sin(t * 9)) * Math.min(1, left / 400) : 0; });
+
+  /* a ring in the owner's colour bursts from the tile when it is mapped */
+  const shockMesh = mesh(new THREE.TorusGeometry(1, 0.045, 8, 56), new THREE.MeshBasicMaterial({ color: SUN, transparent: true, opacity: 0, depthWrite: false }));
+  shockMesh.rotation.x = Math.PI / 2; root.add(shockMesh);
+  function shock(i, color) {
+    shockMesh.position.copy(local(i, 0, Y + 0.09, 7.9));
+    shockMesh.material.color.set(color);
+    tween(850, k => { shockMesh.scale.setScalar(0.25 + k * 1.9); shockMesh.material.opacity = 0.95 * (1 - k); }, easeOut);
+  }
 
   /* card decks and coin stacks on the table */
   const decks = {};
@@ -752,18 +776,28 @@ export async function createBoard(canvas, TILES, SECTORS) {
       await wait(380);
     },
     hideDice() { dice.forEach(d => { if (d.visible) tween(260, k => d.scale.setScalar(1 - k * 0.98)).then(() => { d.visible = false; }); }); },
-    setTile(i, color, stage, animate = true) {
-      const rec = tiles[i], changed = rec.stage !== stage || rec.owner !== color;
+    setTile(i, color, stage, animate = true, name = '') {
+      const rec = tiles[i], changed = rec.stage !== stage || rec.owner !== color, newOwner = rec.owner !== color;
       rec.owner = color; rec.stage = stage;
       rec.ring.visible = !!color;
-      if (color) { rec.ring.material.color.set(color); rec.ring.material.emissive.set(color); rec.ring.material.emissiveIntensity = 0.3; }
+      if (color) { rec.ring.material.color.set(color); rec.ring.material.emissive.set(color); rec.ring.material.emissiveIntensity = 0.2; }
+      if (newOwner) {
+        rec.mesh.material.color.set(rec.base);
+        if (color) rec.mesh.material.color.lerp(new THREE.Color(color), 0.22);
+        const old = rec.lab.material.map;
+        rec.lab.material.map = labelTexture(rec.t, SECTORS[rec.t.sector], color ? { name, color } : null);
+        rec.lab.material.needsUpdate = true;
+        if (old) old.dispose();
+        rec.ring.material.opacity = 0.92;
+        if (color && animate) { rec.ring.material.opacity = 0; tween(600, k => { rec.ring.material.opacity = 0.92 * k; }); shock(i, color); }
+      }
       if (rec.t.type === 'channel' && rec.prop) {
         const f = rec.prop.userData.frame;
         f.material.color.set(color || '#3A3A30'); f.material.emissive.set(color || '#000000'); f.material.emissiveIntensity = color ? 0.5 : 0;
         if (animate && changed) { rec.prop.scale.setScalar(0.7); tween(500, k => rec.prop.scale.setScalar(0.7 + 0.3 * k), backOut); }
       } else if (changed) rebuild(rec, color, animate);
     },
-    pulse(i, ms = 1800) { hiGroup.rotation.y = -i * D; hiUntil = performance.now() + ms / speed; },
+    pulse(i, ms = 1800, color) { hi.material.color.set(color || SUN); hiGroup.rotation.y = -i * D; hiUntil = performance.now() + ms / speed; },
     drawCard(kind) {
       const d = decks[kind];
       return tween(520, k => { d.card.position.y = 0.36 + Math.sin(k * Math.PI) * 1.6; d.card.rotation.z = Math.sin(k * Math.PI) * 0.5; d.card.rotation.x = k * Math.PI * 2; }).then(() => { d.card.rotation.set(0, 0, 0); });

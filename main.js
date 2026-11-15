@@ -194,10 +194,10 @@ async function showEvents(p, evs) {
     else if (e.t === 'own') {
       pause = 520;
       if (e.p === null) { board.setTile(e.tile, null, 0); log(`${esc(g.players[e.from].name)} gives up <b>${TILES[e.tile].name}</b>.`, e.from); }
-      else { board.setTile(e.tile, pl.color, 1); board.pulse(e.tile, 1400); sfx.build(); log(`${esc(pl.name)} maps <b>${TILES[e.tile].name}</b>.`, e.p); }
+      else { board.setTile(e.tile, pl.color, 1, true, pl.name); board.pulse(e.tile, 1400, pl.color); sfx.build(); log(`${esc(pl.name)} maps <b>${TILES[e.tile].name}</b>.`, e.p); }
     } else if (e.t === 'stage') {
       pause = 520;
-      board.setTile(e.tile, pl.color, e.stage); board.pulse(e.tile, 1200); sfx.build();
+      board.setTile(e.tile, pl.color, e.stage, true, pl.name); board.pulse(e.tile, 1200, pl.color); sfx.build();
       log(e.down ? `${esc(pl.name)} scales <b>${TILES[e.tile].name}</b> back to ${STAGES[e.stage - 1]}.` : `${esc(pl.name)} takes <b>${TILES[e.tile].name}</b> to ${STAGES[e.stage - 1]}.`, e.p);
     } else if (e.t === 'perk') { toast(`<b>${esc(PERKS[e.perk].title)}</b> ${esc(PERKS[e.perk].text)}`, pl.color); }
     else if (e.t === 'set') { pause = 700; toast(`<b>${esc(pl.name)}</b> owns all of ${SECTORS[e.sector].name}. Fees and bookings ×${SET_BONUS}.`, pl.color); sfx.turn(); log(`${esc(pl.name)} owns the whole <b>${SECTORS[e.sector].name}</b> sector.`, e.p); }
