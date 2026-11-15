@@ -413,7 +413,7 @@ function tip(i, x, y) {
   }
   window.__board = board;
   board.autoRotate(true);
-  board.shiftView(0.2, 1);
+  if (new URLSearchParams(location.search).has('shot')) document.body.classList.add('shot'); else board.shiftView(0.2, 1);
   board.onHover(tip);
   board.onPick((i, x, y) => { if (i !== null && g && !modalResolve && matchMedia('(pointer: coarse)').matches) { tip(i, x, y); setTimeout(() => tip(null), 2600); } else if (i !== null && g && !modalResolve && phase !== 'over') { ask(marketCardOrInfo(i)); } });
   $('#go').disabled = false;

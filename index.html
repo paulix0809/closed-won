@@ -194,6 +194,9 @@ h1 em{font-style:italic;font-weight:400;color:var(--gold)}
   .dock{bottom:14px;max-width:calc(100vw - 16px);width:max-content} #dock-msg{font-size:14px;white-space:normal}
   .screen{background:linear-gradient(180deg,rgba(6,13,9,.5),rgba(6,13,9,.9) 40%);place-items:end center} .screen{place-items:start center} .panel{margin:0;justify-self:center} .panel .logo svg{margin-bottom:16px} .how{display:none} h1{font-size:44px} .lead{font-size:16px;margin-bottom:16px}
 }
+@media (min-width:861px) and (max-height:860px){ .how{display:none} .panel .logo svg{margin-bottom:16px} h1{font-size:clamp(40px,5vw,60px)} .lead{margin-bottom:14px} #slots{gap:6px;margin-bottom:14px} .slot{padding:7px 11px 7px 13px} }
+@media (min-width:861px) and (max-height:640px){ .lead{display:none} }
+body.shot .screen,body.shot .hud,body.shot .vig{display:none}
 @media (pointer:coarse){ kbd{display:none} }
 @media (prefers-reduced-motion:reduce){ #roll,.float,.toast,#log li{animation:none} }
 </style>
