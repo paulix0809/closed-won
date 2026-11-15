@@ -351,7 +351,7 @@ function buildValley(root, anim) {
   const fg = new THREE.BufferGeometry(); fg.setAttribute('position', new THREE.BufferAttribute(fp, 3));
   root.add(new THREE.Points(fg, new THREE.PointsMaterial({ color: '#FFE2A8', size: 0.075, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false })));
   anim.push(t => { fs.forEach((f, i) => { fp[i * 3] = f[0] + Math.sin(t * f[4] + f[3]) * 0.4; fp[i * 3 + 1] = f[1] + Math.sin(t * f[4] * 1.7 + f[3]) * 0.3; fp[i * 3 + 2] = f[2] + Math.cos(t * f[4] + f[3]) * 0.4; }); fg.attributes.position.needsUpdate = true; });
-  return { gy, brain: [bx, by, bz], setPlant: v => { plantK = v; } };
+  return { gy, brain: [bx, by, bz], setPlant: v => { plantK = v; }, plant, brainParts: { cage, nodes, ring1, ring2 } };
 }
 
 /* ---------- buildings: Mapped → Reach → Booked ---------- */
@@ -490,7 +490,7 @@ export async function createBoard(canvas, TILES, SECTORS) {
   for (let i = 0; i < N; i++) { const a = (i + 0.5) * D, s = mesh(new THREE.SphereGeometry(0.06, 10, 8), gold, Math.sin(a) * 10.22, 0.04, Math.cos(a) * 10.22); root.add(s); }
 
   const valley = buildValley(root, anim);
-  const world = createWorld({ root, anim, gy: valley.gy, brain: valley.brain, setPlant: valley.setPlant, tween: (ms, fn, ease) => tween(ms, fn, ease), mesh, std, glow, shadow, glowSprite, blinkers });
+  const world = createWorld({ root, anim, gy: valley.gy, brain: valley.brain, setPlant: valley.setPlant, plant: valley.plant, brainParts: valley.brainParts, tween: (ms, fn, ease) => tween(ms, fn, ease), mesh, std, glow, shadow, glowSprite, blinkers });
 
   /* tiles */
   const a0 = -Math.PI / 2 - D / 2 + 0.007, a1 = -Math.PI / 2 + D / 2 - 0.007;

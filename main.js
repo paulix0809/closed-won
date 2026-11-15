@@ -1,6 +1,7 @@
 /* Closed Won · interface and turn controller */
 import { Game, TILES, SECTORS, STAGES, PERKS, TARGET, KICKOFF, MAX_ROUNDS, SET_BONUS, money } from './rules.js';
 import { createBoard } from './board3d.js';
+import { AGES } from './world.js';
 
 const CTA_URL = 'https://arrel.ai/get-started';
 const ROSTER = [
@@ -13,7 +14,7 @@ const ROSTER = [
 const $ = s => document.querySelector(s);
 const ARROW = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
 
-let g = null, board = null, phase = 'idle', rollResolve = null, modalResolve = null, speed = 1, viewer = 0, overview = false, stopConfetti = null;
+let g = null, board = null, phase = 'idle', rollResolve = null, modalResolve = null, speed = 1, viewer = 0, overview = false, stopConfetti = null, shownAge = 0;
 
 /* ---------- sound ---------- */
 const AC = window.AudioContext || window.webkitAudioContext;
@@ -146,7 +147,12 @@ function syncWorld() {
     board.world.sector(k, level, top === undefined ? null : g.players[top].color, top !== undefined && g.full(+top, k));
   });
   const lead = [...g.players].sort((a, b) => b.pipeline - a.pipeline)[0];
-  board.world.leader(lead.pipeline, lead.pipeline > 0 ? lead.color : null);
+  const age = board.world.leader(lead.pipeline, lead.pipeline > 0 ? lead.color : null);
+  if (age !== shownAge) {
+    if (age > shownAge) { toast(`The valley enters the <b>${AGES[age]} age</b>.`, lead.color); sfx.pipe(); log(`${esc(lead.name)} leads the valley into the <b>${AGES[age]} age</b>.`, lead.id); }
+    shownAge = age;
+    $('#age').textContent = AGES[age] + ' age';
+  }
   board.daylight((g.round - 1) / 20);
 }
 
@@ -367,7 +373,7 @@ function backToStart() {
   $('#modal').classList.remove('show', 'passive');
   $('#log').innerHTML = ''; $('#players').innerHTML = ''; $('#mine').innerHTML = '';
   $('#b-view').classList.remove('on');
-  phase = 'idle'; viewer = 0; overview = false; g = null;
+  phase = 'idle'; viewer = 0; overview = false; g = null; shownAge = 0; $('#age').textContent = AGES[0] + ' age';
   $('#start').classList.remove('gone');
   board.overview(false);
   board.shiftView(0.2, 900);
