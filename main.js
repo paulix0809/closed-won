@@ -1,7 +1,7 @@
 /* Closed Won · interface and turn controller */
-import { Game, TILES, SECTORS, STAGES, PERKS, TARGET, KICKOFF, MAX_ROUNDS, SET_BONUS, money } from './rules.js';
-import { createBoard } from './board3d.js';
-import { AGES } from './world.js';
+import { Game, TILES, SECTORS, STAGES, PERKS, TARGET, KICKOFF, MAX_ROUNDS, SET_BONUS, money } from './rules.js?v=1115f';
+import { createBoard } from './board3d.js?v=1115f';
+import { AGES } from './world.js?v=1115f';
 
 const CTA_URL = 'https://arrel.ai/get-started';
 const ROSTER = [
